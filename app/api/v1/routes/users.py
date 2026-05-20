@@ -1,5 +1,3 @@
-import logging
-
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.dependencies import CodesRepo, CurrentUser, MailerDep, UserRepo
@@ -16,9 +14,6 @@ from app.services.registration import (
     ExpiredCode,
     InvalidCode,
 )
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
 

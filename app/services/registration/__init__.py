@@ -1,6 +1,7 @@
 from .exceptions import (
     AlreadyActive,
     EmailConflict,
+    ExpiredCode,
     InvalidCode,
     UserNotFound,
 )
@@ -13,4 +14,5 @@ __all__ = [
     "UserNotFound",
     "AlreadyActive",
     "InvalidCode",
+    "ExpiredCode",
 ]

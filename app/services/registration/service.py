@@ -8,9 +8,9 @@ from app.auth import hash_password
 from .exceptions import (
     AlreadyActive,
     EmailConflict,
+    ExpiredCode,
     InvalidCode,
     UserNotFound,
-    ExpiredCode,
 )
 
 logger = logging.getLogger(__name__)

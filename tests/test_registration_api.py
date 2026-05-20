@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-import app.main as main_module
+import app.api.v1.routes.users as users_route
 
 VALID_EMAIL = "user@example.com"
 VALID_PASSWORD = "secret123"
@@ -17,7 +17,7 @@ def _register(client, email=VALID_EMAIL, password=VALID_PASSWORD):
 
 def _get_otp(email=VALID_EMAIL) -> str:
     entry = next(
-        e for e in main_module.code_table if e["email"] == email.lower()
+        e for e in users_route.code_table if e["email"] == email.lower()
     )
     return entry["code"]
 
@@ -40,7 +40,7 @@ def test_register_success(client):
 
 def test_register_creates_inactive_user(client):
     _register(client)
-    user = next(u for u in main_module.user_table if u["email"] == VALID_EMAIL)
+    user = next(u for u in users_route.user_table if u["email"] == VALID_EMAIL)
     assert user["active"] is False
 
 
@@ -89,7 +89,7 @@ def test_activate_marks_user_as_active(client):
     client.post(
         "/api/v1/users/activate", json={"email": VALID_EMAIL, "code": code}
     )
-    user = next(u for u in main_module.user_table if u["email"] == VALID_EMAIL)
+    user = next(u for u in users_route.user_table if u["email"] == VALID_EMAIL)
     assert user["active"] is True
 
 
@@ -103,11 +103,13 @@ def test_activate_no_code_for_email_returns_400(client):
 
 def test_activate_no_user_for_code_returns_404(client):
     # Orphaned code with no corresponding user — UserNotFound branch in service
-    main_module.code_table.append({
-        "email": VALID_EMAIL,
-        "code": "1234",
-        "expires_at": datetime.now(tz=timezone.utc) + timedelta(seconds=60),
-    })
+    users_route.code_table.append(
+        {
+            "email": VALID_EMAIL,
+            "code": "1234",
+            "expires_at": datetime.now(tz=timezone.utc) + timedelta(seconds=60),
+        }
+    )
     response = client.post(
         "/api/v1/users/activate", json={"email": VALID_EMAIL, "code": "1234"}
     )
@@ -137,7 +139,7 @@ def test_activate_already_active_returns_400(client):
 
 def test_activate_expired_code_returns_400(client):
     code = _register_and_get_otp(client)
-    entry = next(e for e in main_module.code_table if e["email"] == VALID_EMAIL)
+    entry = next(e for e in users_route.code_table if e["email"] == VALID_EMAIL)
     entry["expires_at"] = datetime.now(tz=timezone.utc) - timedelta(seconds=1)
     response = client.post(
         "/api/v1/users/activate", json={"email": VALID_EMAIL, "code": code}

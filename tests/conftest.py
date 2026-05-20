@@ -1,12 +1,12 @@
 import pytest
 from fastapi.testclient import TestClient
 
-import app.main as main_module
+import app.api.v1.routes.users as users_route
 from app.main import app
 
 
 @pytest.fixture
 def client():
-    main_module.user_table.clear()
-    main_module.code_table.clear()
+    users_route.user_table.clear()
+    users_route.code_table.clear()
     yield TestClient(app)

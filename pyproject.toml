@@ -24,6 +24,9 @@ pythonpath = ["."]
 [tool.ruff]
 line-length = 80
 
+[tool.ruff.lint]
+select = ["I"]
+
 [tool.ruff.format]
 quote-style = "double"
 

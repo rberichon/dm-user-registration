@@ -4,6 +4,7 @@ install:
 	uv sync --dev
 
 format:
+	uv run ruff check --select I --fix app/ tests/
 	uv run ruff format app/ tests/
 
 lint:

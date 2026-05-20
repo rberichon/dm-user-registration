@@ -4,15 +4,9 @@ import string
 from datetime import datetime, timedelta, timezone
 
 from app.auth import hash_password
-from app.domain import DuplicateEmailError
+from app.domain import DuplicateEmailError, User
 
-from .exceptions import (
-    AlreadyActive,
-    EmailConflict,
-    ExpiredCode,
-    InvalidCode,
-    UserNotFound,
-)
+from .exceptions import AlreadyActive, EmailConflict, ExpiredCode, InvalidCode
 from .interfaces import IActivationCodeRepository, IMailer, IUserRepository
 
 logger = logging.getLogger(__name__)
@@ -52,18 +46,14 @@ async def register_user(
 
 
 async def activate_user(
-    email: str,
+    user: User,
     code: str,
     users_repo: IUserRepository,
     codes_repo: IActivationCodeRepository,
     mailer: IMailer,
 ) -> None:
-    user = await users_repo.get_by_email(email)
-    if not user:
-        raise UserNotFound(email)
-
     if user.is_active:
-        raise AlreadyActive(email)
+        raise AlreadyActive(user.email)
 
     try:
         await codes_repo.get_valid(user.id, code)
@@ -73,9 +63,9 @@ async def activate_user(
         new_code, expires_at = _generate_new_validation_code()
         await codes_repo.upsert(user.id, new_code, expires_at)
         logger.info(
-            f"Generated OTP {new_code} for {email}, expires at {expires_at.isoformat()}"
+            f"Generated OTP {new_code} for {user.email}, expires at {expires_at.isoformat()}"
         )
-        await mailer.send_activation_code(email, new_code)
+        await mailer.send_activation_code(user.email, new_code)
         raise ExpiredCode
 
     async with users_repo.transaction():

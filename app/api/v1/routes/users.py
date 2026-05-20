@@ -2,7 +2,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.dependencies import CodesRepo, MailerDep, UserRepo
+from app.api.dependencies import CodesRepo, CurrentUser, MailerDep, UserRepo
 from app.api.v1.models import (
     ActivateRequest,
     ActivateResponse,
@@ -15,7 +15,6 @@ from app.services.registration import (
     EmailConflict,
     ExpiredCode,
     InvalidCode,
-    UserNotFound,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -59,21 +58,18 @@ async def register(
     "/activate",
     response_model=ActivateResponse,
     summary="Activate an account with the OTP code",
-    description="Validates the 4-digit code received by email to activate the account.",
+    description="Validates the 4-digit OTP code received by email. Requires Basic Auth.",
 )
 async def activate(
     body: ActivateRequest,
+    current_user: CurrentUser,
     users_repo: UserRepo,
     codes_repo: CodesRepo,
     mailer: MailerDep,
 ):
     try:
         await registration.activate_user(
-            body.email, body.code, users_repo, codes_repo, mailer
-        )
-    except UserNotFound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+            current_user, body.code, users_repo, codes_repo, mailer
         )
     except AlreadyActive:
         raise HTTPException(

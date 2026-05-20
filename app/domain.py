@@ -5,8 +5,9 @@ from dataclasses import dataclass
 class User:
     id: int
     email: str
+    hashed_password: str
     is_active: bool
 
 
 class DuplicateEmailError(Exception):
-    """Raised by a repository when a user with the given email already exists."""
+    pass

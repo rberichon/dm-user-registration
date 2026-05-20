@@ -15,7 +15,6 @@ class RegisterResponse(BaseModel):
 
 
 class ActivateRequest(BaseModel):
-    email: LowercaseEmail
     code: str = Field(pattern=r"^\d{4}$", description="4-digit numeric code.")
 
 

@@ -10,13 +10,16 @@ class UserRepository:
 
     async def get_by_email(self, email: str) -> User | None:
         row = await self._conn.fetchrow(
-            "SELECT id, email, is_active FROM users WHERE email = $1",
+            "SELECT id, email, password, is_active FROM users WHERE email = $1",
             email,
         )
         if row is None:
             return None
         return User(
-            id=row["id"], email=row["email"], is_active=row["is_active"]
+            id=row["id"],
+            email=row["email"],
+            hashed_password=row["password"],
+            is_active=row["is_active"],
         )
 
     async def create(self, email: str, hashed_password: str) -> int:

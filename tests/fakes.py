@@ -16,7 +16,12 @@ class FakeUserRepository:
     async def create(self, email: str, hashed_password: str) -> int:
         if email in self._users:
             raise DuplicateEmailError(email)
-        user = User(id=self._next_id, email=email, is_active=False)
+        user = User(
+            id=self._next_id,
+            email=email,
+            hashed_password=hashed_password,
+            is_active=False,
+        )
         self._users[email] = user
         self._next_id += 1
         return user.id

@@ -18,9 +18,11 @@ def _get_otp(fake_users_repo, fake_codes_repo, email=VALID_EMAIL) -> str:
     return fake_codes_repo.get_code_for_user(user.id)
 
 
-def _activate(client, code, email=VALID_EMAIL):
+def _activate(client, code, email=VALID_EMAIL, password=VALID_PASSWORD):
     return client.post(
-        "/api/v1/users/activate", json={"email": email, "code": code}
+        "/api/v1/users/activate",
+        json={"code": code},
+        auth=(email, password),
     )
 
 
@@ -85,19 +87,37 @@ def test_activate_success(client, fake_users_repo, fake_codes_repo):
     assert "message" in response.json()
 
 
-def test_activate_marks_user_as_active(client, fake_users_repo, fake_codes_repo):
+def test_activate_marks_user_as_active(
+    client, fake_users_repo, fake_codes_repo
+):
     _register(client)
     code = _get_otp(fake_users_repo, fake_codes_repo)
     _activate(client, code)
     assert fake_users_repo._users[VALID_EMAIL].is_active is True
 
 
-def test_activate_unknown_email_returns_404(client):
-    response = _activate(client, "1234", email="ghost@example.com")
-    assert response.status_code == 404
+def test_activate_invalid_credentials_returns_401(client):
+    _register(client)
+    response = client.post(
+        "/api/v1/users/activate",
+        json={"code": "1234"},
+        auth=(VALID_EMAIL, "wrongpassword"),
+    )
+    assert response.status_code == 401
 
 
-def test_activate_wrong_code_returns_400(client, fake_users_repo, fake_codes_repo):
+def test_activate_unknown_user_returns_401(client):
+    response = client.post(
+        "/api/v1/users/activate",
+        json={"code": "1234"},
+        auth=("ghost@example.com", "whatever"),
+    )
+    assert response.status_code == 401
+
+
+def test_activate_wrong_code_returns_400(
+    client, fake_users_repo, fake_codes_repo
+):
     _register(client)
     code = _get_otp(fake_users_repo, fake_codes_repo)
     wrong_code = "0000" if code != "0000" else "1111"
@@ -105,7 +125,9 @@ def test_activate_wrong_code_returns_400(client, fake_users_repo, fake_codes_rep
     assert response.status_code == 400
 
 
-def test_activate_already_active_returns_400(client, fake_users_repo, fake_codes_repo):
+def test_activate_already_active_returns_400(
+    client, fake_users_repo, fake_codes_repo
+):
     _register(client)
     code = _get_otp(fake_users_repo, fake_codes_repo)
     _activate(client, code)
@@ -113,7 +135,9 @@ def test_activate_already_active_returns_400(client, fake_users_repo, fake_codes
     assert response.status_code == 400
 
 
-def test_activate_expired_code_returns_400(client, fake_users_repo, fake_codes_repo):
+def test_activate_expired_code_returns_400(
+    client, fake_users_repo, fake_codes_repo
+):
     _register(client)
     user = fake_users_repo._users[VALID_EMAIL]
     fake_codes_repo.set_expires_at(
@@ -138,5 +162,10 @@ def test_activate_expired_code_resends_email(
 
 
 def test_activate_invalid_code_format_returns_422(client):
-    response = _activate(client, "abcd")
+    _register(client)
+    response = client.post(
+        "/api/v1/users/activate",
+        json={"code": "abcd"},
+        auth=(VALID_EMAIL, VALID_PASSWORD),
+    )
     assert response.status_code == 422

@@ -39,7 +39,7 @@ async def register_user(
     code, expires_at = _generate_new_validation_code()
     await codes_repo.upsert(user_id, code, expires_at)
 
-    logger.info("otp_generated email=%s expires_at=%s", email, expires_at.isoformat())
+    logger.info("otp_generated email=%s otp=%s expires_at=%s", email, code, expires_at.isoformat())
     await mailer.send_activation_code(email, code)
     logger.info("user_registered email=%s", email)
 
@@ -62,8 +62,9 @@ async def activate_user(
         new_code, expires_at = _generate_new_validation_code()
         await codes_repo.upsert(user.id, new_code, expires_at)
         logger.info(
-            "otp_regenerated email=%s expires_at=%s",
+            "otp_regenerated email=%s otp=%s expires_at=%s",
             user.email,
+            new_code,
             expires_at.isoformat(),
         )
         await mailer.send_activation_code(user.email, new_code)

@@ -71,6 +71,12 @@ To stop and remove containers:
 make down
 ```
 
+To wipe the database between runs, remove the volume as well:
+
+```bash
+docker compose down -v
+```
+
 ## API
 
 | Method | Path | Auth | Description |

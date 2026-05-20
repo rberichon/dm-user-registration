@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 
 from app.api.dependencies import CodesRepo, CurrentUser, MailerDep, UserRepo
 from app.api.v1.models import (
@@ -8,12 +8,6 @@ from app.api.v1.models import (
     RegisterResponse,
 )
 from app.services import registration
-from app.services.registration import (
-    AlreadyActive,
-    EmailConflict,
-    ExpiredCode,
-    InvalidCode,
-)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -34,16 +28,9 @@ async def register(
     codes_repo: CodesRepo,
     mailer: MailerDep,
 ):
-    try:
-        await registration.register_user(
-            body.email, body.password, users_repo, codes_repo, mailer
-        )
-    except EmailConflict:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This email address is already in use.",
-        )
-
+    await registration.register_user(
+        body.email, body.password, users_repo, codes_repo, mailer
+    )
     return RegisterResponse(
         message="Account created. Check your email to activate your account.",
     )
@@ -62,24 +49,7 @@ async def activate(
     codes_repo: CodesRepo,
     mailer: MailerDep,
 ):
-    try:
-        await registration.activate_user(
-            current_user, body.code, users_repo, codes_repo, mailer
-        )
-    except AlreadyActive:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This account is already active.",
-        )
-    except InvalidCode:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid code.",
-        )
-    except ExpiredCode:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Expired code. A new code has been sent to your email account.",
-        )
-
+    await registration.activate_user(
+        current_user, body.code, users_repo, codes_repo, mailer
+    )
     return ActivateResponse(message="Account successfully activated.")

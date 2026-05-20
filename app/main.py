@@ -3,10 +3,12 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from app.api.v1.routes import router as v1_router
 from app.db.pool import close_pool, get_pool
 from app.logging_config import setup_logging
+from app.services.registration.exceptions import ServiceError
 
 setup_logging()
 
@@ -25,6 +27,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="User Registration API", lifespan=lifespan)
+
+
+@app.exception_handler(ServiceError)
+async def service_error_handler(request: Request, exc: ServiceError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
 
 
 @app.middleware("http")

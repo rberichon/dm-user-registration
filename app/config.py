@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://localhost/app"
     mail_service_url: str = "http://localhost:8025"
+    otp_ttl_seconds: int = 60
 
 
 settings = Settings()

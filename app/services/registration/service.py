@@ -4,6 +4,7 @@ import string
 from datetime import datetime, timedelta, timezone
 
 from app.auth import hash_password
+from app.config import settings
 from app.domain import DuplicateEmailError, User
 
 from .exceptions import AlreadyActive, EmailConflict, ExpiredCode, InvalidCode
@@ -18,7 +19,7 @@ def _generate_otp(length: int = 4) -> str:
 
 def _generate_new_validation_code() -> tuple[str, datetime]:
     code = _generate_otp()
-    expires_at = datetime.now(tz=timezone.utc) + timedelta(seconds=60)
+    expires_at = datetime.now(tz=timezone.utc) + timedelta(seconds=settings.otp_ttl_seconds)
     return code, expires_at
 
 

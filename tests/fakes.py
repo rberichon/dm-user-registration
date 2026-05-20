@@ -60,3 +60,11 @@ class FakeActivationCodeRepository:
     def set_expires_at(self, user_id: int, expires_at: datetime) -> None:
         """Test helper: override the expiry of a user's code."""
         self._codes[user_id]["expires_at"] = expires_at
+
+
+class FakeMailer:
+    def __init__(self) -> None:
+        self.sent: list[dict] = []
+
+    async def send_activation_code(self, email: str, code: str) -> None:
+        self.sent.append({"email": email, "code": code})

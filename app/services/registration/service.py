@@ -13,7 +13,7 @@ from .exceptions import (
     InvalidCode,
     UserNotFound,
 )
-from .interfaces import IActivationCodeRepository, IUserRepository
+from .interfaces import IActivationCodeRepository, IMailer, IUserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +22,9 @@ def _generate_otp(length: int = 4) -> str:
     return "".join(secrets.choice(string.digits) for _ in range(length))
 
 
-def _generate_new_validation_code(email) -> tuple[str, datetime]:
+def _generate_new_validation_code() -> tuple[str, datetime]:
     code = _generate_otp()
     expires_at = datetime.now(tz=timezone.utc) + timedelta(seconds=60)
-
     return code, expires_at
 
 
@@ -34,6 +33,7 @@ async def register_user(
     password: str,
     users_repo: IUserRepository,
     codes_repo: IActivationCodeRepository,
+    mailer: IMailer,
 ):
     hashed = hash_password(password)
 
@@ -42,13 +42,13 @@ async def register_user(
     except DuplicateEmailError:
         raise EmailConflict(email)
 
-    code, expires_at = _generate_new_validation_code(email)
+    code, expires_at = _generate_new_validation_code()
     await codes_repo.upsert(user_id, code, expires_at)
 
-    # TODO use mail service
     logger.info(
         f"Generated OTP {code} for {email}, expires at {expires_at.isoformat()}"
     )
+    await mailer.send_activation_code(email, code)
 
 
 async def activate_user(
@@ -56,6 +56,7 @@ async def activate_user(
     code: str,
     users_repo: IUserRepository,
     codes_repo: IActivationCodeRepository,
+    mailer: IMailer,
 ) -> None:
     user = await users_repo.get_by_email(email)
     if not user:
@@ -69,12 +70,12 @@ async def activate_user(
     except InvalidCode:
         raise InvalidCode(code)
     except ExpiredCode:
-        new_code, expires_at = _generate_new_validation_code(email)
+        new_code, expires_at = _generate_new_validation_code()
         await codes_repo.upsert(user.id, new_code, expires_at)
-        # TODO use mail service
         logger.info(
             f"Generated OTP {new_code} for {email}, expires at {expires_at.isoformat()}"
         )
+        await mailer.send_activation_code(email, new_code)
         raise ExpiredCode
 
     async with users_repo.transaction():

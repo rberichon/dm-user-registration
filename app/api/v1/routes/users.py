@@ -2,7 +2,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.dependencies import CodesRepo, UserRepo
+from app.api.dependencies import CodesRepo, MailerDep, UserRepo
 from app.api.v1.models import (
     ActivateRequest,
     ActivateResponse,
@@ -28,18 +28,21 @@ router = APIRouter(prefix="/users", tags=["users"])
     "/register",
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Regiser a new user",
+    summary="Register a new user",
     description=(
         "Creates an inactive user and sends a 4-digit OTP code "
         "valid for 60s to the provided email address."
     ),
 )
 async def register(
-    body: RegisterRequest, users_repo: UserRepo, codes_repo: CodesRepo
+    body: RegisterRequest,
+    users_repo: UserRepo,
+    codes_repo: CodesRepo,
+    mailer: MailerDep,
 ):
     try:
         await registration.register_user(
-            body.email, body.password, users_repo, codes_repo
+            body.email, body.password, users_repo, codes_repo, mailer
         )
     except EmailConflict:
         raise HTTPException(
@@ -59,11 +62,14 @@ async def register(
     description="Validates the 4-digit code received by email to activate the account.",
 )
 async def activate(
-    body: ActivateRequest, users_repo: UserRepo, codes_repo: CodesRepo
+    body: ActivateRequest,
+    users_repo: UserRepo,
+    codes_repo: CodesRepo,
+    mailer: MailerDep,
 ):
     try:
         await registration.activate_user(
-            body.email, body.code, users_repo, codes_repo
+            body.email, body.code, users_repo, codes_repo, mailer
         )
     except UserNotFound:
         raise HTTPException(

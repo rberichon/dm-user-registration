@@ -15,15 +15,23 @@ services:
       timeout: 5s
       retries: 10
 
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"
+
   api:
     build: .
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://user:password@postgres:5432/appdb
+      MAIL_SERVICE_URL: http://mailpit:8025
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
 
 volumes:
   pgdata:

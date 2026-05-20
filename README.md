@@ -91,14 +91,20 @@ Interactive docs are available at `http://localhost:8000/docs`.
 curl -X POST http://localhost:8000/api/v1/users/register \
   -H "Content-Type: application/json" \
   -d '{"email": "alice@example.com", "password": "supersecret"}'
+{"message":"Account created. Check your email to activate your account."}
 ```
+
+The activation code is delivered via email. In local dev, open Mailpit at `http://localhost:8025` to read it:
+
+![Mailpit showing the activation code email](docs/mailpit-activation-email.png)
 
 **Activate** (code received by email, credentials from registration):
 ```bash
 curl -X POST http://localhost:8000/api/v1/users/activate \
   -u alice@example.com:supersecret \
   -H "Content-Type: application/json" \
-  -d '{"code": "1234"}'
+  -d '{"code": "1429"}'
+{"message":"Account successfully activated."}
 ```
 
 ## Development

@@ -12,6 +12,7 @@ from app.api.v1.models import (
     RegisterRequest,
     RegisterResponse,
 )
+from app.auth import hash_password
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,10 +22,6 @@ app = FastAPI(title="User Registration API")
 
 user_table = []  # {"email": mail@mail.com, "active": False, "password": "hashedpwd"}
 code_table = []  # {"email": mail@mail.com, "code": 1234, "expires_at": "datetime object"}
-
-
-def hash_password(password: str) -> str:
-    return "hashed_" + password
 
 
 def generate_otp(length: int = 4) -> int:

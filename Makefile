@@ -21,5 +21,20 @@ check: format lint security test
 build:
 	docker build -t dailymotion-user-registration-api .
 
+migrate:
+	uv run python scripts/migrate.py
+
+rollback:
+	uv run python scripts/migrate.py down
+
+build:
+	docker build -t dailymotion-user-registration-api .
+
+up:
+	docker compose up --build
+
+down:
+	docker compose down
+
 run:
 	uv run uvicorn app.main:app --reload

@@ -25,6 +25,7 @@ RUN addgroup --system app && adduser --system --ingroup app app
 # Copy only what is needed at runtime (no uv, no build tools).
 COPY --from=builder --chown=app:app /app/.venv       ./.venv
 COPY --from=builder --chown=app:app /app/app         ./app
+COPY --from=builder --chown=app:app /app/migrations  ./migrations
 COPY --from=builder --chown=app:app /app/scripts     ./scripts
 
 # Activate the venv by prepending it to PATH.

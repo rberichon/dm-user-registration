@@ -1,8 +1,12 @@
-from pydantic import BaseModel, EmailStr, Field
+from typing import Annotated
+
+from pydantic import AfterValidator, BaseModel, EmailStr, Field
+
+LowercaseEmail = Annotated[EmailStr, AfterValidator(str.lower)]
 
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
+    email: LowercaseEmail
     password: str = Field(min_length=8, description="Minimum 8 characters.")
 
 
@@ -11,7 +15,7 @@ class RegisterResponse(BaseModel):
 
 
 class ActivateRequest(BaseModel):
-    email: EmailStr
+    email: LowercaseEmail
     code: str = Field(pattern=r"^\d{4}$", description="4-digit numeric code.")
 
 

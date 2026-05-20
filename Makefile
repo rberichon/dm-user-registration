@@ -18,5 +18,8 @@ test:
 
 check: format lint security test
 
+build:
+	docker build -t dailymotion-user-registration-api .
+
 run:
 	uv run uvicorn app.main:app --reload

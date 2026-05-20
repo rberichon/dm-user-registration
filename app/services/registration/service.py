@@ -4,6 +4,7 @@ import string
 from datetime import datetime, timedelta, timezone
 
 from app.auth import hash_password
+from app.domain import DuplicateEmailError
 
 from .exceptions import (
     AlreadyActive,
@@ -12,6 +13,7 @@ from .exceptions import (
     InvalidCode,
     UserNotFound,
 )
+from .interfaces import IActivationCodeRepository, IUserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -30,19 +32,19 @@ def _generate_new_validation_code(email) -> tuple[str, datetime]:
 async def register_user(
     email: str,
     password: str,
-    user_table: list[dict],
-    code_table: list[dict],
+    users_repo: IUserRepository,
+    codes_repo: IActivationCodeRepository,
 ):
-    if any(user["email"] == email for user in user_table):
+    hashed = hash_password(password)
+
+    try:
+        user_id = await users_repo.create(email, hashed)
+    except DuplicateEmailError:
         raise EmailConflict(email)
 
-    hashed = hash_password(password)
-    user_table.append(
-        {"email": email, "hashed_password": hashed, "active": False}
-    )
-
     code, expires_at = _generate_new_validation_code(email)
-    code_table.append({"email": email, "code": code, "expires_at": expires_at})
+    await codes_repo.upsert(user_id, code, expires_at)
+
     # TODO use mail service
     logger.info(
         f"Generated OTP {code} for {email}, expires at {expires_at.isoformat()}"
@@ -52,39 +54,29 @@ async def register_user(
 async def activate_user(
     email: str,
     code: str,
-    user_table: list[dict],
-    code_table: list[dict],
+    users_repo: IUserRepository,
+    codes_repo: IActivationCodeRepository,
 ) -> None:
-    user_code = None
-    user_code_exp_at = None
-    for entry in code_table:
-        if entry["email"] == email:
-            user_code = entry["code"]
-            user_code_exp_at = entry["expires_at"]
-    if not user_code:
-        raise InvalidCode()
-
-    user = None
-    for entry in user_table:
-        if entry["email"] == email:
-            user = entry
-
+    user = await users_repo.get_by_email(email)
     if not user:
         raise UserNotFound(email)
 
-    if user["active"]:
+    if user.is_active:
         raise AlreadyActive(email)
 
-    if user_code != code:
-        raise InvalidCode()
-
-    if user_code_exp_at and user_code_exp_at < datetime.now(tz=timezone.utc):
-        code, expires_at = _generate_new_validation_code(email)
+    try:
+        await codes_repo.get_valid(user.id, code)
+    except InvalidCode:
+        raise InvalidCode(code)
+    except ExpiredCode:
+        new_code, expires_at = _generate_new_validation_code(email)
+        await codes_repo.upsert(user.id, new_code, expires_at)
         # TODO use mail service
         logger.info(
-            f"Generated OTP {code} for {email}, expires at {expires_at.isoformat()}"
+            f"Generated OTP {new_code} for {email}, expires at {expires_at.isoformat()}"
         )
+        raise ExpiredCode
 
-        raise ExpiredCode()
-
-    user["active"] = True
+    async with users_repo.transaction():
+        await codes_repo.delete(user.id)
+        await users_repo.activate(user.id)

@@ -1,7 +1,5 @@
 from datetime import datetime, timedelta, timezone
 
-import app.api.v1.routes.users as users_route
-
 VALID_EMAIL = "user@example.com"
 VALID_PASSWORD = "secret123"
 
@@ -10,23 +8,23 @@ VALID_PASSWORD = "secret123"
 
 
 def _register(client, email=VALID_EMAIL, password=VALID_PASSWORD):
-    return client.post(
+    http, _, _ = client
+    return http.post(
         "/api/v1/users/register", json={"email": email, "password": password}
     )
 
 
-def _get_otp(email=VALID_EMAIL) -> str:
-    entry = next(
-        e for e in users_route.code_table if e["email"] == email.lower()
-    )
-    return entry["code"]
+def _get_otp(client, email=VALID_EMAIL) -> str:
+    _, fake_users_repo, fake_codes_repo = client
+    user = fake_users_repo._users.get(email.lower())
+    return fake_codes_repo.get_code_for_user(user.id)
 
 
 def _register_and_get_otp(
     client, email=VALID_EMAIL, password=VALID_PASSWORD
 ) -> str:
     _register(client, email, password)
-    return _get_otp(email)
+    return _get_otp(client, email)
 
 
 # ── POST /api/v1/users/register ────────────────────────────────────────────────
@@ -39,9 +37,11 @@ def test_register_success(client):
 
 
 def test_register_creates_inactive_user(client):
+    _, fake_users_repo, _ = client
     _register(client)
-    user = next(u for u in users_route.user_table if u["email"] == VALID_EMAIL)
-    assert user["active"] is False
+    user = fake_users_repo._users.get(VALID_EMAIL)
+    assert user is not None
+    assert user.is_active is False
 
 
 def test_register_duplicate_email_returns_409(client):
@@ -51,7 +51,8 @@ def test_register_duplicate_email_returns_409(client):
 
 
 def test_register_invalid_email_returns_422(client):
-    response = client.post(
+    http, _, _ = client
+    response = http.post(
         "/api/v1/users/register",
         json={"email": "not-an-email", "password": VALID_PASSWORD},
     )
@@ -59,7 +60,8 @@ def test_register_invalid_email_returns_422(client):
 
 
 def test_register_password_too_short_returns_422(client):
-    response = client.post(
+    http, _, _ = client
+    response = http.post(
         "/api/v1/users/register",
         json={"email": VALID_EMAIL, "password": "short"},
     )
@@ -76,8 +78,9 @@ def test_register_normalizes_email_to_lowercase(client):
 
 
 def test_activate_success(client):
+    http, _, _ = client
     code = _register_and_get_otp(client)
-    response = client.post(
+    response = http.post(
         "/api/v1/users/activate", json={"email": VALID_EMAIL, "code": code}
     )
     assert response.status_code == 200
@@ -85,41 +88,29 @@ def test_activate_success(client):
 
 
 def test_activate_marks_user_as_active(client):
+    http, fake_users_repo, _ = client
     code = _register_and_get_otp(client)
-    client.post(
+    http.post(
         "/api/v1/users/activate", json={"email": VALID_EMAIL, "code": code}
     )
-    user = next(u for u in users_route.user_table if u["email"] == VALID_EMAIL)
-    assert user["active"] is True
+    user = fake_users_repo._users.get(VALID_EMAIL)
+    assert user.is_active is True
 
 
-def test_activate_no_code_for_email_returns_400(client):
-    response = client.post(
+def test_activate_unknown_email_returns_404(client):
+    http, _, _ = client
+    response = http.post(
         "/api/v1/users/activate",
         json={"email": "ghost@example.com", "code": "1234"},
-    )
-    assert response.status_code == 400
-
-
-def test_activate_no_user_for_code_returns_404(client):
-    # Orphaned code with no corresponding user — UserNotFound branch in service
-    users_route.code_table.append(
-        {
-            "email": VALID_EMAIL,
-            "code": "1234",
-            "expires_at": datetime.now(tz=timezone.utc) + timedelta(seconds=60),
-        }
-    )
-    response = client.post(
-        "/api/v1/users/activate", json={"email": VALID_EMAIL, "code": "1234"}
     )
     assert response.status_code == 404
 
 
 def test_activate_wrong_code_returns_400(client):
+    http, _, _ = client
     code = _register_and_get_otp(client)
     wrong_code = "0000" if code != "0000" else "1111"
-    response = client.post(
+    response = http.post(
         "/api/v1/users/activate",
         json={"email": VALID_EMAIL, "code": wrong_code},
     )
@@ -127,28 +118,34 @@ def test_activate_wrong_code_returns_400(client):
 
 
 def test_activate_already_active_returns_400(client):
+    http, _, _ = client
     code = _register_and_get_otp(client)
-    client.post(
+    http.post(
         "/api/v1/users/activate", json={"email": VALID_EMAIL, "code": code}
     )
-    response = client.post(
+    response = http.post(
         "/api/v1/users/activate", json={"email": VALID_EMAIL, "code": code}
     )
     assert response.status_code == 400
 
 
 def test_activate_expired_code_returns_400(client):
-    code = _register_and_get_otp(client)
-    entry = next(e for e in users_route.code_table if e["email"] == VALID_EMAIL)
-    entry["expires_at"] = datetime.now(tz=timezone.utc) - timedelta(seconds=1)
-    response = client.post(
+    http, fake_users_repo, fake_codes_repo = client
+    _register(client)
+    user = fake_users_repo._users[VALID_EMAIL]
+    fake_codes_repo.set_expires_at(
+        user.id, datetime.now(tz=timezone.utc) - timedelta(seconds=1)
+    )
+    code = fake_codes_repo.get_code_for_user(user.id)
+    response = http.post(
         "/api/v1/users/activate", json={"email": VALID_EMAIL, "code": code}
     )
     assert response.status_code == 400
 
 
 def test_activate_invalid_code_format_returns_422(client):
-    response = client.post(
+    http, _, _ = client
+    response = http.post(
         "/api/v1/users/activate", json={"email": VALID_EMAIL, "code": "abcd"}
     )
     assert response.status_code == 422

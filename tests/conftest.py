@@ -1,12 +1,19 @@
 import pytest
 from fastapi.testclient import TestClient
 
-import app.api.v1.routes.users as users_route
+from app.api.dependencies import get_activation_code_repo, get_user_repo
 from app.main import app
+from tests.fakes import FakeActivationCodeRepository, FakeUserRepository
 
 
 @pytest.fixture
 def client():
-    users_route.user_table.clear()
-    users_route.code_table.clear()
-    yield TestClient(app)
+    fake_users_repo = FakeUserRepository()
+    fake_codes_repo = FakeActivationCodeRepository()
+
+    app.dependency_overrides[get_user_repo] = lambda: fake_users_repo
+    app.dependency_overrides[get_activation_code_repo] = lambda: fake_codes_repo
+
+    yield TestClient(app), fake_users_repo, fake_codes_repo
+
+    app.dependency_overrides.clear()

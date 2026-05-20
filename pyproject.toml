@@ -1,8 +1,31 @@
 [project]
 name = "dailymotion-user-registration-api"
 version = "0.1.0"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi[uvicorn]>=0.136.1",
     "pydantic[email]>=2.13.4",
     "uvicorn>=0.47.0",
 ]
+
+[dependency-groups]
+dev = [
+    "bandit>=1.9.4",
+    "httpx>=0.28.1",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.13",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 80
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.bandit]
+targets = ["app"]
+exclude_dirs = ["tests"]

@@ -63,11 +63,7 @@ make up
 
 The API will be available at `http://localhost:8000`. The Mailpit web UI (to inspect outgoing emails) is at `http://localhost:8025`.
 
-On first run, apply the database migrations:
-
-```bash
-make migrate
-```
+Database migrations run automatically at container startup via `scripts/entrypoint.sh`, so no manual step is needed.
 
 To stop and remove containers:
 

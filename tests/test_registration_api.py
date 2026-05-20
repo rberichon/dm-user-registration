@@ -58,6 +58,14 @@ def test_register_invalid_email_returns_422(client):
     assert response.status_code == 422
 
 
+def test_register_password_too_short_returns_422(client):
+    response = client.post(
+        "/api/v1/users/register",
+        json={"email": VALID_EMAIL, "password": "short"},
+    )
+    assert response.status_code == 422
+
+
 def test_register_normalizes_email_to_lowercase(client):
     _register(client, email="USER@EXAMPLE.COM")
     response = _register(client, email="user@example.com")
@@ -85,10 +93,23 @@ def test_activate_marks_user_as_active(client):
     assert user["active"] is True
 
 
-def test_activate_unknown_email_returns_404(client):
+def test_activate_no_code_for_email_returns_400(client):
     response = client.post(
         "/api/v1/users/activate",
         json={"email": "ghost@example.com", "code": "1234"},
+    )
+    assert response.status_code == 400
+
+
+def test_activate_no_user_for_code_returns_404(client):
+    # Orphaned code with no corresponding user — UserNotFound branch in service
+    main_module.code_table.append({
+        "email": VALID_EMAIL,
+        "code": "1234",
+        "expires_at": datetime.now(tz=timezone.utc) + timedelta(seconds=60),
+    })
+    response = client.post(
+        "/api/v1/users/activate", json={"email": VALID_EMAIL, "code": "1234"}
     )
     assert response.status_code == 404
 

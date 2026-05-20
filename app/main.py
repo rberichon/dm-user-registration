@@ -2,9 +2,13 @@ import logging
 
 
 from fastapi import FastAPI, HTTPException, status
-import secrets
-import string
-from datetime import datetime, timedelta, timezone
+
+from app.services.registration import (
+    AlreadyActive,
+    EmailConflict,
+    InvalidCode,
+    UserNotFound,
+)
 
 from app.api.v1.models import (
     ActivateRequest,
@@ -12,7 +16,9 @@ from app.api.v1.models import (
     RegisterRequest,
     RegisterResponse,
 )
-from app.auth import hash_password
+
+from app.services import registration
+from app.services.registration.exceptions import ExpiredCode
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,10 +28,6 @@ app = FastAPI(title="User Registration API")
 
 user_table = []  # {"email": mail@mail.com, "active": False, "password": "hashedpwd"}
 code_table = []  # {"email": mail@mail.com, "code": 1234, "expires_at": "datetime object"}
-
-
-def generate_otp(length: int = 4) -> int:
-    return "".join(secrets.choice(string.digits) for _ in range(length))
 
 
 @app.post(
@@ -39,27 +41,18 @@ def generate_otp(length: int = 4) -> int:
     ),
 )
 async def register(body: RegisterRequest):
-    email = body.email.lower()
-    if any(user["email"] == email for user in user_table):
+    try:
+        await registration.register_user(
+            body.email, body.password, user_table, code_table
+        )
+    except EmailConflict:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This email address is already in use.",
         )
 
-    hashed = hash_password(body.password)
-    user_table.append(
-        {"email": email, "hashed_password": hashed, "active": False}
-    )
-
-    code = generate_otp()
-    expires_at = datetime.now(tz=timezone.utc) + timedelta(seconds=60)
-
-    code_table.append({"email": email, "code": code, "expires_at": expires_at})
-    logger.info(
-        f"Generated OTP {code} for {email}, expires at {expires_at.isoformat()}"
-    )
     return RegisterResponse(
-        message="Account created. Check your email to activate your account."
+        message="Account created. Check your email to activate your account.",
     )
 
 
@@ -70,50 +63,28 @@ async def register(body: RegisterRequest):
     description="Validates the 4-digit code received by email to activate the account.",
 )
 async def activate(body: ActivateRequest):
-    email = body.email.lower()
-
-    user_code = None
-    user_code_exp_at = None
-    for entry in code_table:
-        if entry["email"] == email:
-            user_code = entry["code"]
-            user_code_exp_at = entry["expires_at"]
-    if not user_code:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Unknown user",
+    try:
+        await registration.activate_user(
+            body.email, body.code, user_table, code_table
         )
-
-    user = None
-    for entry in user_table:
-        if entry["email"] == email:
-            user = entry
-
-    if not user:
+    except UserNotFound:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Unknown user",
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
         )
-
-    if user["active"]:
+    except AlreadyActive:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User already active",
+            detail="This account is already active.",
         )
-
-    if user_code != body.code:
-        print(user_code, body.code)
+    except InvalidCode:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid code.",
         )
-
-    if user_code_exp_at and user_code_exp_at < datetime.now(tz=timezone.utc):
+    except ExpiredCode:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Code expired.",
+            detail="Expired code. A new code has been sent to your email account.",
         )
-
-    user["active"] = True
 
     return ActivateResponse(message="Account successfully activated.")

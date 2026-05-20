@@ -2,34 +2,21 @@ import logging
 
 
 from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, EmailStr, Field
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
 
+from app.api.v1.models import (
+    ActivateRequest,
+    ActivateResponse,
+    RegisterRequest,
+    RegisterResponse,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="User Registration API")
-
-
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class RegisterResponse(BaseModel):
-    message: str
-
-
-class ActivateRequest(BaseModel):
-    email: EmailStr
-    code: str = Field(pattern=r"^\d{4}$", description="4-digit numeric code.")
-
-
-class ActivateResponse(BaseModel):
-    message: str
 
 
 user_table = []  # {"email": mail@mail.com, "active": False, "password": "hashedpwd"}

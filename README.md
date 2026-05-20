@@ -111,6 +111,12 @@ curl -X POST http://localhost:8000/api/v1/users/activate \
 
 Dependencies are managed with [uv](https://docs.astral.sh/uv/).
 
+Copy `.env.example` to `.env` and adjust the values for your local setup. This file is read automatically by the app via pydantic-settings. When using Docker Compose the variables are injected directly, so `.env` is only needed for `make run`.
+
+```bash
+cp .env.example .env
+```
+
 ```bash
 make install   # install all dependencies
 make run       # start dev server with hot reload (requires local Postgres)

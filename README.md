@@ -61,7 +61,7 @@ The simplest way to run everything is with Docker Compose, which starts PostgreS
 make up
 ```
 
-The API will be available at `http://localhost:8000`. The Mailpit web UI (to inspect outgoing emails) is at `http://localhost:8025`.
+The API will be available at `http://localhost:8000` (Swagger at `http://localhost:8000/docs`). The Mailpit web UI (to inspect outgoing emails) is at `http://localhost:8025`.
 
 Database migrations run automatically at container startup via `scripts/entrypoint.sh`, so no manual step is needed.
 
